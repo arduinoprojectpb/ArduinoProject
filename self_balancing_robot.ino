@@ -88,6 +88,7 @@ LMotorController motorController(ENA, IN1, IN2, ENB, IN3, IN4, 0.6, 1);
 long time1Hz = 0;
 long time5Hz = 0;
 int val;
+bool turning = false;
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -186,27 +187,11 @@ void loop()
     {
         //no mpu data - performing PID calculations and output to motors
         
-        val = Serial.read();
-        
-        if (val == 100)
+        if (turning == false)
         {
-          while (val != 115)
-          {
-          motorController.turnLeft(100,0);
-          val = Serial.read();
-          }
+            pid.Compute();
+            motorController.move(output, MIN_ABS_SPEED);
         }
-        if (val == 97)
-        {
-          while (val != 115)
-          {
-          motorController.turnRight(100,0);
-          val = Serial.read();
-          }
-        }
-        pid.Compute();
-        motorController.move(output, MIN_ABS_SPEED);
-        val = Serial.read();
         
         unsigned long currentMillis = millis();
 
@@ -334,3 +319,24 @@ void readPIDTuningValues()
     kd = map(potKd, 0, 1023, 0, 500) / 100.0; //0 - 5
 }
 #endif
+
+void serialEvent() {
+    if (Serial.available() > 0) {
+        int val = Serial.read();
+        if (val == 97)
+        {
+            motorController.turnLeft(130,0);
+            turning = true;
+        }
+        else if (val == 100)
+        {
+            motorController.turnRight(130,0);
+            turning = true;
+        }
+        else if (val == 115)
+        {
+            turning = false;
+        }
+    }
+}
+            
