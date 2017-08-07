@@ -89,6 +89,7 @@ long time1Hz = 0;
 long time5Hz = 0;
 int val;
 bool turning = false;
+bool moving = false;
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -133,9 +134,9 @@ void setup()
 
     // supply your own gyro offsets here, scaled for min sensitivity
     mpu.setXGyroOffset(140);
-    mpu.setYGyroOffset(177);
+    mpu.setYGyroOffset(160);
     mpu.setZGyroOffset(-46);
-    mpu.setZAccelOffset(1424); // 1688 factory default for my test chip
+    mpu.setZAccelOffset(1588); // 1688 factory default for my test chip
 
     // make sure it worked (returns 0 if so)
     if (devStatus == 0)
