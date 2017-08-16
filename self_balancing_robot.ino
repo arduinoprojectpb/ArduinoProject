@@ -338,6 +338,26 @@ void serialEvent() {
         {
             turning = false;
         }
+        if (val == 119)
+            {
+              for(int j=120; j>80; j--){
+              motorController.move(j);
+              }
+              moving = true;
+            }
+            else if (val == 120)
+            {
+              for(int j=120; j>80; j--){
+              j=-j;  
+              motorController.move(j);
+              }
+              moving = true;
+            }      
+            else if (val == 115)
+            { 
+              moving = false; 
+            }
+        }
     }
 }
             
