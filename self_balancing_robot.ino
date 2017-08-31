@@ -1,13 +1,11 @@
 #include <PID_v1.h>
 #include <LMotorController.h>
 #include "I2Cdev.h"
-
 #include "MPU6050_6Axis_MotionApps20.h"
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
     #include "Wire.h"
 #endif
-
 
 #define LOG_INPUT 0
 #define MANUAL_TUNING 0
@@ -17,7 +15,6 @@
 #define MIN_ABS_SPEED 30
 
 //MPU
-
 
 MPU6050 mpu;
 
@@ -49,13 +46,11 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
 //PID
-
-
 #if MANUAL_TUNING
   double kp , ki, kd;
   double prevKp, prevKi, prevKd;
 #endif
-double originalSetpoint = 174.29;
+double originalSetpoint = 175.29;
 double setpoint = originalSetpoint;
 double movingAngleOffset = 0.3;
 double input, output;
@@ -64,12 +59,12 @@ int moveState=0; //0 = balance; 1 = back; 2 = forth
 #if MANUAL_TUNING
   PID pid(&input, &output, &setpoint, 0, 0, 0, DIRECT);
 #else
+  //pid(input, output, setpoint, Kp, Ki, Kd, ControllerDirection)
   PID pid(&input, &output, &setpoint, 70, 240, 1.9, DIRECT);
 #endif
 
-
 //MOTOR CONTROLLER
-
+// podlaczenie z odpowiednimi pinami w Arduino
 
 int ENA = 3;
 int IN1 = 4;
@@ -78,16 +73,16 @@ int IN3 = 5;
 int IN4 = 7;
 int ENB = 6;
 
-
 LMotorController motorController(ENA, IN1, IN2, ENB, IN3, IN4, 0.6, 1);
 
-
 //timers
-
-
 long time1Hz = 0;
 long time5Hz = 0;
 
+//////
+int val;
+bool moving = false;
+bool turning = false;
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -107,9 +102,8 @@ void setup()
     #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);
     #endif
- 
-    //Serial.begin(115200);
-    //while (!Serial); // wait for Leonardo enumeration, others continue immediately
+    
+    Serial.begin(9600); // opcjonalnie 115200
 
     // initialize device
     //Serial.println(F("Initializing I2C devices..."));
@@ -131,10 +125,10 @@ void setup()
     devStatus = mpu.dmpInitialize();
 
     // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+    mpu.setXGyroOffset(150);
+    mpu.setYGyroOffset(170);
+    mpu.setZGyroOffset(-46);
+    mpu.setZAccelOffset(1588);
 
     // make sure it worked (returns 0 if so)
     if (devStatus == 0)
@@ -154,9 +148,8 @@ void setup()
 
         // get expected DMP packet size for later comparison
         packetSize = mpu.dmpGetFIFOPacketSize();
-        
+
         //setup PID
-        
         pid.SetMode(AUTOMATIC);
         pid.SetSampleTime(10);
         pid.SetOutputLimits(-255, 255);  
@@ -180,17 +173,20 @@ void loop()
 {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
-
+    
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize)
     {
         //no mpu data - performing PID calculations and output to motors
-        
-        pid.Compute();
-        motorController.move(output, MIN_ABS_SPEED);
-        
-        unsigned long currentMillis = millis();
 
+        if (turning == false && moving == false)
+        {
+          pid.Compute();
+          motorController.move(output, MIN_ABS_SPEED);
+        }
+
+        unsigned long currentMillis = millis(); 
+        
         if (currentMillis - time1Hz >= 1000)
         {
             loopAt1Hz();
@@ -249,8 +245,8 @@ void loop()
         #endif
         input = ypr[1] * 180/M_PI + 180;
    }
-}
 
+}
 
 void loopAt1Hz()
 {
@@ -269,7 +265,6 @@ void loopAt5Hz()
 
 
 //move back and forth
-
 
 void moveBackForth()
 {
@@ -303,7 +298,6 @@ void setPIDTuningValues()
     }
 }
 
-
 void readPIDTuningValues()
 {
     int potKp = analogRead(A0);
@@ -315,3 +309,46 @@ void readPIDTuningValues()
     kd = map(potKd, 0, 1023, 0, 500) / 100.0; //0 - 5
 }
 #endif
+
+void serialEvent() {
+        if (Serial.available() > 0) {
+          int val = Serial.read();
+            if (val == 97)
+            {
+              motorController.turnLeft(130,0);
+              turning = true;
+            }
+            else if (val == 100)
+            {
+              motorController.turnRight(130,0);  
+              turning = true; 
+            }      
+            else if (val == 115)
+            { 
+              turning = false; 
+            }
+            if (val == 119)
+            {
+              moving = true;
+              originalSetpoint = 170;
+              for(int j=120; j>100; j--)
+              { 
+                motorController.move(j);
+              }   
+            }
+            else if (val == 120)
+            {
+              moving = true;
+              originalSetpoint = 178;
+              for(int j=120; j>100; j--)
+              {
+                j=-j;  
+                motorController.move(j);
+              }
+            }      
+            else if (val == 115)
+            { 
+              moving = false; 
+            }
+        }
+}
